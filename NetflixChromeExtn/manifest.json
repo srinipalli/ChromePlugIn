@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Netflix Latest (Gemini)",
+  "version": "1.0.0",
+  "description": "Lists the latest movies on Netflix using Gemini 1.5 Flash.",
+  "action": { "default_popup": "popup.html" },
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://www.whats-on-netflix.com/*",
+    "https://www.netflix.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

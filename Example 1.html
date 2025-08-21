@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DCT Patch Editor</title>
+  <style>
+    body { font-family: Arial; display: flex; flex-wrap: wrap; gap: 20px; padding: 20px; }
+    canvas { border: 1px solid #ccc; cursor: crosshair; image-rendering: pixelated; }
+    #imageCanvas { width: 512px; height: 512px; }
+    #patchCanvas { width: 256px; height: 256px; }
+    #basisCanvas { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 512px; }
+    .basis-item { text-align: center; font-size: 10px; }
+    .basis-item canvas { width: 64px; height: 64px; display: block; margin: auto; }
+    .controls { display: grid; grid-template-columns: repeat(8, 60px); gap: 2px; }
+    .controls input { width: 58px; height: 24px; font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div>
+    <h3>Select 8x8 Patch</h3>
+    <canvas id="imageCanvas" width="256" height="256"></canvas><br>
+    <input type="file" id="imageUpload" />
+  </div>
+  <div>
+    <h3>64 DCT Coefficients</h3>
+    <div class="controls" id="coeffContainer"></div>
+    <h3>Reconstructed Patch</h3>
+    <canvas id="patchCanvas" width="64" height="64"></canvas>
+  </div>
+  <div>
+    <h3>DCT Basis Visuals</h3>
+    <div id="basisCanvas"></div>
+  </div>
+
+  <script>
+    const imageCanvas = document.getElementById("imageCanvas");
+    const imageCtx = imageCanvas.getContext("2d");
+    const patchCanvas = document.getElementById("patchCanvas");
+    const patchCtx = patchCanvas.getContext("2d");
+    const coeffContainer = document.getElementById("coeffContainer");
+    const basisContainer = document.getElementById("basisCanvas");
+
+    let coeffInputs = [];
+    let selectedPatch = { x: 0, y: 0 };
+
+    function generateDCTBasis(coeffs = []) {
+      const N = 8;
+      basisContainer.innerHTML = "";
+      for (let v = 0; v < N; v++) {
+        for (let u = 0; u < N; u++) {
+          const canvas = document.createElement("canvas");
+          canvas.width = 64;
+          canvas.height = 64;
+          const ctx = canvas.getContext("2d");
+          const imageData = ctx.createImageData(64, 64);
+          for (let y = 0; y < 64; y++) {
+            for (let x = 0; x < 64; x++) {
+              const val = Math.cos(((2 * x + 1) * u * Math.PI) / (2 * 64)) *
+                          Math.cos(((2 * y + 1) * v * Math.PI) / (2 * 64));
+              const gray = Math.round((val + 1) * 127.5);
+              const i = (y * 64 + x) * 4;
+              imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = gray;
+              imageData.data[i + 3] = 255;
+            }
+          }
+          ctx.putImageData(imageData, 0, 0);
+          ctx.imageSmoothingEnabled = false;
+
+          const div = document.createElement("div");
+          div.className = "basis-item";
+          div.appendChild(canvas);
+          const valText = document.createElement("div");
+          valText.innerText = coeffs[v * N + u]?.toFixed(1) ?? "";
+          div.appendChild(valText);
+          basisContainer.appendChild(div);
+        }
+      }
+    }
+
+    function drawPatch(pixels) {
+      const imgData = patchCtx.createImageData(8, 8);
+      for (let i = 0; i < 64; i++) {
+        const val = pixels[i];
+        imgData.data[i * 4 + 0] = val;
+        imgData.data[i * 4 + 1] = val;
+        imgData.data[i * 4 + 2] = val;
+        imgData.data[i * 4 + 3] = 255;
+      }
+      patchCtx.putImageData(imgData, 0, 0);
+      patchCtx.imageSmoothingEnabled = false;
+      patchCtx.drawImage(patchCanvas, 0, 0, 256, 256);
+
+      // Re-encode patch back into the image
+      const patchData = imageCtx.getImageData(selectedPatch.x, selectedPatch.y, 8, 8);
+      for (let i = 0; i < 64; i++) {
+        const gray = pixels[i];
+        patchData.data[i * 4 + 0] = gray;
+        patchData.data[i * 4 + 1] = gray;
+        patchData.data[i * 4 + 2] = gray;
+        patchData.data[i * 4 + 3] = 255;
+      }
+      imageCtx.putImageData(patchData, selectedPatch.x, selectedPatch.y);
+    }
+
+    function highlightSelectedPatch(x, y) {
+      imageCtx.strokeStyle = "red";
+      imageCtx.lineWidth = 1;
+      imageCtx.strokeRect(x, y, 8, 8);
+    }
+
+    function updateFromInputs() {
+      const coeffs = coeffInputs.map(input => parseFloat(input.value) || 0);
+      const reconstructed = idct2D(coeffs);
+      drawPatch(reconstructed);
+      generateDCTBasis(coeffs);
+    }
+
+    function createInputs(coeffs) {
+      coeffContainer.innerHTML = "";
+      coeffInputs = coeffs.map((val) => {
+        const input = document.createElement("input");
+        input.value = val.toFixed(1);
+        input.addEventListener("input", updateFromInputs);
+        coeffContainer.appendChild(input);
+        return input;
+      });
+    }
+
+    imageCanvas.addEventListener("click", (e) => {
+      const rect = imageCanvas.getBoundingClientRect();
+      const scaleX = imageCanvas.width / rect.width;
+      const scaleY = imageCanvas.height / rect.height;
+      const x = Math.floor((e.clientX - rect.left) * scaleX);
+      const y = Math.floor((e.clientY - rect.top) * scaleY);
+      const sx = Math.max(0, Math.min(x, 248));
+      const sy = Math.max(0, Math.min(y, 248));
+      selectedPatch = { x: sx, y: sy };
+      const patch = imageCtx.getImageData(sx, sy, 8, 8).data;
+      const gray = [];
+      for (let i = 0; i < patch.length; i += 4) {
+        const r = patch[i], g = patch[i + 1], b = patch[i + 2];
+        gray.push(0.299 * r + 0.587 * g + 0.114 * b);
+      }
+      const coeffs = dct2D(gray);
+      createInputs(coeffs);
+      updateFromInputs();
+      highlightSelectedPatch(sx, sy);
+    });
+
+    document.getElementById("imageUpload").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      const img = new Image();
+      img.onload = () => {
+        imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
+        imageCtx.imageSmoothingEnabled = false;
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    function dct2D(pixels) {
+      const N = 8;
+      let coeffs = new Array(N * N).fill(0);
+      for (let u = 0; u < N; u++) {
+        for (let v = 0; v < N; v++) {
+          let sum = 0;
+          for (let x = 0; x < N; x++) {
+            for (let y = 0; y < N; y++) {
+              sum += pixels[y * N + x] *
+                Math.cos(((2 * x + 1) * u * Math.PI) / (2 * N)) *
+                Math.cos(((2 * y + 1) * v * Math.PI) / (2 * N));
+            }
+          }
+          const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+          const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+          coeffs[v * N + u] = 0.25 * cu * cv * sum;
+        }
+      }
+      return coeffs;
+    }
+
+    function idct2D(coeffs) {
+      const N = 8;
+      let pixels = new Array(N * N).fill(0);
+      for (let x = 0; x < N; x++) {
+        for (let y = 0; y < N; y++) {
+          let sum = 0;
+          for (let u = 0; u < N; u++) {
+            for (let v = 0; v < N; v++) {
+              const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+              const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+              sum += cu * cv * coeffs[v * N + u] *
+                Math.cos(((2 * x + 1) * u * Math.PI) / (2 * N)) *
+                Math.cos(((2 * y + 1) * v * Math.PI) / (2 * N));
+            }
+          }
+          pixels[y * N + x] = Math.min(255, Math.max(0, Math.round(0.25 * sum)));
+        }
+      }
+      return pixels;
+    }
+
+    generateDCTBasis();
+  </script>
+</body>
+</html>

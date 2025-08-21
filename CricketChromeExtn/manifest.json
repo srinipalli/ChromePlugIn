@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "ICC Matches (Gemini Flash 2.5)",
+  "version": "2.5.0",
+  "description": "Lists ICC nations and fetches upcoming Men & Women matches using Gemini Flash 2.5 with strict JSON output.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*"
+  ]
+}

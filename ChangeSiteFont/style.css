@@ -1,0 +1,15 @@
+body {
+  font-family: Arial, sans-serif;
+  padding: 10px;
+  width: 200px;
+}
+
+h3 {
+  margin-bottom: 8px;
+}
+
+select, button {
+  width: 100%;
+  margin: 5px 0;
+  padding: 5px;
+}

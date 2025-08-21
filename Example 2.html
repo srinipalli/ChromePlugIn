@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SVD Rank Approximation Viewer</title>
+  <script src="https://www.lactame.com/lib/ml/6.0.0/ml.min.js"></script>
+  <style>
+    body { background: black; color: white; font-family: sans-serif; text-align: center; }
+    input { margin: 20px; }
+    .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+    .card { background: #111; padding: 10px; border-radius: 8px; width: 140px; }
+    canvas { border: 1px solid white; }
+  </style>
+</head>
+<body>
+  <h2>Image Recovery via SVD (Rank Approximation)</h2>
+  <input type="file" id="upload" accept="image/*">
+  <div id="container" class="container"></div>
+
+  <script>
+    const ranks = [5, 10, 20, 40, 60, 80, 100];
+    const { Matrix, SVD } = ML;
+
+    document.getElementById('upload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await img.decode();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 100;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 100, 100);
+      const imageData = ctx.getImageData(0, 0, 100, 100);
+
+      const gray = Array.from({ length: 100 }, (_, i) =>
+        Array.from({ length: 100 }, (_, j) => {
+          const idx = (i * 100 + j) * 4;
+          const [r, g, b] = [imageData.data[idx], imageData.data[idx + 1], imageData.data[idx + 2]];
+          return 0.299 * r + 0.587 * g + 0.114 * b;
+        })
+      );
+
+      const A = new Matrix(gray);
+      const svd = new SVD(A);
+      const U = svd.leftSingularVectors;
+      const S = svd.diagonal;
+      const V = svd.rightSingularVectors;
+
+      const container = document.getElementById('container');
+      container.innerHTML = '';
+      drawMatrix(gray, 'Original (100×100)', container);
+
+      ranks.forEach((r) => {
+        const Ur = U.subMatrix(0, U.rows - 1, 0, r - 1);
+        const Sr = Matrix.diag(S.slice(0, r));
+        const Vr = V.subMatrix(0, V.rows - 1, 0, r - 1);
+        const Ar = Ur.mmul(Sr).mmul(Vr.transpose());
+        drawMatrix(Ar.to2DArray(), `Rank ${r}`, container);
+      });
+    });
+
+    function drawMatrix(matrix, label, container) {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 100;
+      const ctx = cv.getContext('2d');
+      const imageData = ctx.createImageData(100, 100);
+
+      matrix.forEach((row, i) =>
+        row.forEach((v, j) => {
+          const idx = (i * 100 + j) * 4;
+          const val = Math.max(0, Math.min(255, v));
+          imageData.data.set([val, val, val, 255], idx);
+        })
+      );
+
+      ctx.putImageData(imageData, 0, 0);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.appendChild(cv);
+      const title = document.createElement('div');
+      title.innerText = label;
+      card.appendChild(title);
+      container.appendChild(card);
+    }
+  </script>
+</body>
+</html>

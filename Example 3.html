@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Eye-Based Color Perception Demo</title>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #eee; padding: 20px; text-align: center; }
+    canvas { border: 1px solid #444; margin-top: 20px; }
+    .slider { width: 300px; margin: 10px auto; }
+    label { display: block; margin: 8px 0 4px; }
+  </style>
+</head>
+<body>
+  <h2>🎨 Eye-Based Image Perception Simulator</h2>
+  <input type="file" id="upload" accept="image/*"><br>
+  <canvas id="canvas" width="400" height="400"></canvas>
+
+  <div class="slider">
+    <h3>👁️ Cones – Color Perception (Day Vision)</h3>
+    <label>Red</label><input type="range" id="rSlider" min="0" max="255" value="255">
+    <label>Green</label><input type="range" id="gSlider" min="0" max="255" value="255">
+    <label>Blue</label><input type="range" id="bSlider" min="0" max="255" value="255">
+  </div>
+
+  <div class="slider">
+    <label><input type="checkbox" id="desaturate"> 🧪 Desaturate (simulate grayscale)</label>
+  </div>
+
+  <div class="slider">
+    <h3>🌙 Rods – Light Sensitivity (Night Vision)</h3>
+    <label>Rod Sensitivity (Luminosity Boost)</label>
+    <input type="range" id="lumSlider" min="0" max="3" value="1" step="0.1">
+  </div>
+
+  <script>
+    const upload = document.getElementById('upload');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const rSlider = document.getElementById('rSlider');
+    const gSlider = document.getElementById('gSlider');
+    const bSlider = document.getElementById('bSlider');
+    const desaturate = document.getElementById('desaturate');
+    const lumSlider = document.getElementById('lumSlider');
+
+    let originalImage = null;
+
+    function applyFilters() {
+      if (!originalImage) return;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.drawImage(originalImage, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+
+      const rMult = rSlider.value / 255;
+      const gMult = gSlider.value / 255;
+      const bMult = bSlider.value / 255;
+      const lum = parseFloat(lumSlider.value);
+
+      for (let i = 0; i < data.length; i += 4) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+
+        // Optional desaturation (simulate grayscale)
+        if (desaturate.checked) {
+          const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          r = g = b = gray;
+        }
+
+        r *= rMult;
+        g *= gMult;
+        b *= bMult;
+
+        // Rod sensitivity: boost brightness (not color)
+        const lumBoost = (0.2126 * r + 0.7152 * g + 0.0722 * b) * (lum - 1);
+        r += lumBoost;
+        g += lumBoost;
+        b += lumBoost;
+
+        data[i] = Math.min(255, r);
+        data[i + 1] = Math.min(255, g);
+        data[i + 2] = Math.min(255, b);
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    upload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = function() {
+          originalImage = img;
+          canvas.width = img.width;
+          canvas.height = img.height;
+          applyFilters();
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    [rSlider, gSlider, bSlider, desaturate, lumSlider].forEach(el => {
+      el.addEventListener('input', applyFilters);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Clipboard Manager",
+  "version": "1.1.0",
+  "description": "Captures and stores copied text across tabs. Search, copy-back, and delete from history.",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Clipboard"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

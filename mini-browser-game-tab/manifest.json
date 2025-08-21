@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Mini Browser Game (Tab)",
+  "version": "1.0.0",
+  "description": "A small browser-based game that opens in its own tab.",
+  "action": {
+    "default_title": "Play Mini Game",
+    "default_icon": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "tabs"
+  ],
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}

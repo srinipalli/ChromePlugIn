@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Color Space Channel Visualizer</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    input[type="file"] {
+      margin: 20px;
+    }
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .label {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    canvas {
+      width: 128px;
+      height: 128px;
+      border: 1px solid #555;
+    }
+  </style>
+</head>
+<body>
+  <h2>Upload Image to See RGB, CMY, CMYK, YIQ, HSV, HLS Channels</h2>
+  <input type="file" accept="image/*" id="imageInput">
+  <div id="output"></div>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const output = document.getElementById('output');
+
+    imageInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => processImage(img);
+      img.src = URL.createObjectURL(file);
+    });
+
+    function createCanvasAndDraw(label, dataURL) {
+      const column = document.createElement('div');
+      column.className = 'column';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'label';
+      labelEl.textContent = label;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+
+      const tempImg = new Image();
+      tempImg.onload = () => ctx.drawImage(tempImg, 0, 0, 128, 128);
+      tempImg.src = dataURL;
+
+      column.appendChild(labelEl);
+      column.appendChild(canvas);
+      return column;
+    }
+
+    function processImage(img) {
+      output.innerHTML = '';
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const channels = {
+        RGB: ['R', 'G', 'B'],
+        CMY: ['C', 'M', 'Y'],
+        CMYK: ['C', 'M', 'Y', 'K'],
+        YIQ: ['Y', 'I', 'Q'],
+        HSV: ['H', 'S', 'V'],
+        HLS: ['H', 'L', 'S'],
+      };
+
+      for (const space in channels) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        for (const ch of channels[space]) {
+          const outCanvas = document.createElement('canvas');
+          outCanvas.width = width;
+          outCanvas.height = height;
+          const outCtx = outCanvas.getContext('2d');
+          const outData = outCtx.createImageData(width, height);
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i], g = data[i+1], b = data[i+2];
+            let newR = 0, newG = 0, newB = 0;
+
+            if (space === 'RGB') {
+              if (ch === 'R') newR = r;
+              if (ch === 'G') newG = g;
+              if (ch === 'B') newB = b;
+            } else if (space === 'CMY') {
+              if (ch === 'C') newG = newB = 255 - r;
+              if (ch === 'M') newR = newB = 255 - g;
+              if (ch === 'Y') newR = newG = 255 - b;
+            } else if (space === 'CMYK') {
+              const k = 255 - Math.max(r, g, b);
+              const c = 255 - r - k;
+              const m = 255 - g - k;
+              const y = 255 - b - k;
+              if (ch === 'C') newG = newB = c + k;
+              if (ch === 'M') newR = newB = m + k;
+              if (ch === 'Y') newR = newG = y + k;
+              if (ch === 'K') newR = newG = newB = k;
+            } else if (space === 'YIQ') {
+              const Y = 0.299*r + 0.587*g + 0.114*b;
+              const I = 0.596*r - 0.274*g - 0.322*b;
+              const Q = 0.211*r - 0.523*g + 0.312*b;
+              if (ch === 'Y') newR = newG = newB = Y;
+              if (ch === 'I') newR = newG = newB = I + 128;
+              if (ch === 'Q') newR = newG = newB = Q + 128;
+            } else if (space === 'HSV' || space === 'HLS') {
+              const [H, S, V] = rgbToHsv(r, g, b);
+              if (space === 'HSV') {
+                if (ch === 'H') [newR, newG, newB] = hsvToRgb(H, 1, 1);
+                if (ch === 'S') newR = newG = newB = S * 255;
+                if (ch === 'V') newR = newG = newB = V * 255;
+              } else {
+                const L = (Math.max(r,g,b) + Math.min(r,g,b))/2 / 255;
+                if (ch === 'H') [newR, newG, newB] = hsvToRgb(H, 1, 1);
+                if (ch === 'L') newR = newG = newB = L * 255;
+                if (ch === 'S') newR = newG = newB = S * 255;
+              }
+            }
+
+            outData.data[i] = newR;
+            outData.data[i+1] = newG;
+            outData.data[i+2] = newB;
+            outData.data[i+3] = 255;
+          }
+          outCtx.putImageData(outData, 0, 0);
+          row.appendChild(createCanvasAndDraw(`${space} - ${ch}`, outCanvas.toDataURL()));
+        }
+        output.appendChild(row);
+      }
+    }
+
+    function rgbToHsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, v = max;
+      const d = max - min;
+      s = max === 0 ? 0 : d / max;
+      if (max === min) h = 0;
+      else {
+        switch(max){
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return [h, s, v];
+    }
+
+    function hsvToRgb(h, s, v) {
+      let r, g, b;
+      let i = Math.floor(h * 6);
+      let f = h * 6 - i;
+      let p = v * (1 - s);
+      let q = v * (1 - f * s);
+      let t = v * (1 - (1 - f) * s);
+      switch(i % 6){
+        case 0: r=v, g=t, b=p; break;
+        case 1: r=q, g=v, b=p; break;
+        case 2: r=p, g=v, b=t; break;
+        case 3: r=p, g=q, b=v; break;
+        case 4: r=t, g=p, b=v; break;
+        case 5: r=v, g=p, b=q; break;
+      }
+      return [r*255, g*255, b*255];
+    }
+  </script>
+</body>
+</html>

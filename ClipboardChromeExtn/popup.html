@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Clipboard Manager</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h2>Clipboard</h2>
+      <div class="actions">
+        <input id="search" type="text" placeholder="Search…" />
+        <button id="clearAll" title="Clear all">Clear</button>
+      </div>
+    </header>
+    <main>
+      <ul id="list"></ul>
+      <p id="empty" class="muted">Nothing copied yet. Copy text on any page to see it here.</p>
+    </main>
+    <footer>
+      <span class="muted">Tip: click an item to copy it back.</span>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

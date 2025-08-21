@@ -1,0 +1,41 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <title>ICC Matches (Gemini Flash 2.5)</title>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏏 ICC Matches</h1>
+    <div class="card row">
+      <div>
+        <label for="nation">ICC Nation</label>
+        <select id="nation"></select>
+      </div>
+      <div>
+        <label for="limit">How many upcoming (each)</label>
+        <input id="limit" type="text" value="5" />
+      </div>
+      <div class="small">
+        <label><input type="checkbox" id="debug"> Show raw JSON</label>
+      </div>
+      <button id="fetch" class="primary">Upcoming Matches</button>
+      <div class="small">
+        Uses <strong>Gemini Flash 2.5</strong>. Set your API key in <a href="options.html" target="_blank">Options</a>.
+      </div>
+      <div id="status" class="muted"></div>
+      <pre id="raw" class="small" style="display:none;"></pre>
+    </div>
+
+    <div id="results" style="margin-top:12px;" class="row"></div>
+    <div class="small muted" style="margin-top:8px;">
+      Tip: Verify fixtures on official sites (ICC/BCCI/cricket boards). LLM output may have occasional gaps.
+    </div>
+  </div>
+  <script type="module" src="constants.js"></script>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
